@@ -10,8 +10,6 @@ with open('CHANGELOG.rst') as changelog_file:
     changelog = changelog_file.read()
 
 install_requires = [
-    'requests>=2.11.0',
-    'bigchaindb~=0.9.1',
 ]
 
 tests_require = [
