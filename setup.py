@@ -49,6 +49,13 @@ setup(
     packages=[
         'bigchaindb_consensus_composition',
     ],
+    # Replace `PLUGIN_NAME` with a unique, unambiguous name to identify your
+    # rules. You can also add multiple entry_points for different rules sets.
+    entry_points={
+        'bigchaindb.consensus': [
+            'consensus_asset_composition=bigchaindb_consensus_composition.consensus:AssetCompositionConsensusRules'
+        ]
+    },
     package_dir={'bigchaindb_consensus_composition':
                  'bigchaindb_consensus_composition'},
     include_package_data=True,

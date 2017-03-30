@@ -22,10 +22,12 @@ class AssetCompositionConsensusRules(BaseConsensusRules):
         if transaction.operation == Transaction.TRANSFER:
             input_txs = transaction.get_input_txs(bigchain)
 
+        result = transaction.validate(bigchain, input_txs)
+
         AssetCompositionConsensusRules\
             .validate_asset(bigchain, transaction, input_txs)
 
-        return transaction.validate(bigchain, input_txs)
+        return result
 
     @staticmethod
     def validate_asset(bigchain, transaction, input_txs):
@@ -95,7 +97,9 @@ class AssetCompositionConsensusRules(BaseConsensusRules):
         if not hasattr(transaction, 'asset'):
             raise ValidationError('Asset not found in transaction {}'.format(transaction))
 
-        if transaction.operation == Transaction.CREATE:
+        if transaction.operation == Transaction.GENESIS:
+            return []
+        elif transaction.operation == Transaction.CREATE:
             return [transaction.asset]
         elif transaction.operation == Transaction.TRANSFER:
             asset_ids = transaction.get_asset_ids(

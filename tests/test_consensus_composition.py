@@ -56,7 +56,8 @@ def transfer_simple_tx(user_pub, user_priv, input_tx, metadata=None):
 @pytest.mark.bdb
 def test_consensus_load(plugin, plugin_local):
     from bigchaindb.core import Bigchain
-    b = Bigchain(consensusPlugin=plugin_local)
+    from bigchaindb_consensus_composition.consensus import AssetCompositionConsensusRules
+    b = Bigchain(consensusPlugin=AssetCompositionConsensusRules)
 
     alice_priv, alice_pub = crypto.generate_key_pair()
 
