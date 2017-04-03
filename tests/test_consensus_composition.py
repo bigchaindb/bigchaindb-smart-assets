@@ -70,10 +70,44 @@ def test_consensus_load(b):
     assert response.status_code == 202
 
 
-@pytest.mark.skip
 @pytest.mark.bdb
 @pytest.mark.usefixtures('inputs')
-def test_asset_type_mix(b_consensus, client):
+def test_consensus_rules(b):
+    alice_priv, alice_pub = crypto.generate_key_pair()
+
+    create_a = create_simple_tx(
+        alice_pub, alice_priv,
+        asset={
+            'policy': [
+                {
+                    'condition': {
+                        'expr': '%0 EQ {}'.format('INIT'),
+                        'locals': ['self.metadata']
+                    },
+                    'rule': {
+                        'expr': '%0 EQ %1',
+                        'locals': ['self.inputs[:].amount', 'self.outputs[:].amount']
+                    }
+                },
+                {
+                    'condition': {
+                        'expr': '%0 EQ {}'.format(alice_pub),
+                        'locals': ['self.metadata']
+                    },
+                    'rule': {
+                        'expr': '%0 EQ 1',
+                        'locals': ['self.outputs[:].amount']
+                    }
+                },
+            ]
+        })
+    response = post_tx(b, None, create_a)
+    assert response.status_code == 202
+
+
+@pytest.mark.bdb
+@pytest.mark.usefixtures('inputs')
+def test_asset_type_mix(b, client):
     from bigchaindb.models import Transaction
 
     alice_priv, alice_pub = crypto.generate_key_pair()
@@ -86,11 +120,11 @@ def test_asset_type_mix(b_consensus, client):
                 'material': 'secret sauce'
             }
         })
-    response = post_tx(b_consensus, client, create_a)
+    response = post_tx(b, client, create_a)
     assert response.status_code == 202
 
     transfer_a = transfer_simple_tx(alice_pub, alice_priv, create_a)
-    response = post_tx(b_consensus, client, transfer_a)
+    response = post_tx(b, client, transfer_a)
     assert response.status_code == 202
 
     bob_priv, bob_pub = crypto.generate_key_pair()
@@ -103,7 +137,7 @@ def test_asset_type_mix(b_consensus, client):
                 'material': 'bulk'
             }
         })
-    response = post_tx(b_consensus, client, tx_b)
+    response = post_tx(b, client, tx_b)
     assert response.status_code == 202
 
     carly_priv, carly_pub = crypto.generate_key_pair()
@@ -115,5 +149,5 @@ def test_asset_type_mix(b_consensus, client):
     )
 
     tx_mix_signed = tx_mix.sign([alice_priv, bob_priv])
-    response = post_tx(b_consensus, client, tx_mix_signed)
+    response = post_tx(b, client, tx_mix_signed)
     assert response.status_code == 202
