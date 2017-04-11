@@ -78,30 +78,221 @@ def test_consensus_rules(b):
     create_a = create_simple_tx(
         alice_pub, alice_priv,
         asset={
+            'type': 'composition',
             'policy': [
                 {
                     'condition': {
-                        'expr': '%0 EQ {}'.format('INIT'),
-                        'locals': ['self.metadata']
+                        'expr': '%0 EQ {}'.format('"INIT"'),
+                        'locals': ['transaction.metadata["state"]']
                     },
                     'rule': {
                         'expr': '%0 EQ %1',
-                        'locals': ['self.inputs[:].amount', 'self.outputs[:].amount']
+                        'locals': ['transaction.inputs[:].amount', 'transaction.outputs[:].amount']
                     }
                 },
                 {
                     'condition': {
                         'expr': '%0 EQ {}'.format(alice_pub),
-                        'locals': ['self.metadata']
+                        'locals': ['transaction.metadata']
                     },
                     'rule': {
                         'expr': '%0 EQ 1',
-                        'locals': ['self.outputs[:].amount']
+                        'locals': ['transaction.outputs[:].amount']
                     }
                 },
             ]
+        },
+        metadata={
+            'state': "INIT"
         })
     response = post_tx(b, None, create_a)
+    assert response.status_code == 202
+
+
+@pytest.mark.bdb
+@pytest.mark.usefixtures('inputs')
+def test_consensus_rules_frontend(b):
+    alice_priv, alice_pub = crypto.generate_key_pair()
+
+    create_a = create_simple_tx(
+        alice_pub, alice_priv,
+        asset={
+            'type': 'composition',
+            'policy': [
+                {
+                    'condition': {
+                        'expr': "'INIT' EQ 'INIT'",
+                        'locals': []
+                    },
+                    'rule': {
+                        'expr': "'0' EQ '0'",
+                        'locals': []
+                    }
+                },
+            ]
+        },
+        metadata={
+            'state': "INIT"
+        })
+    response = post_tx(b, None, create_a)
+    assert response.status_code == 202
+
+
+@pytest.mark.bdb
+@pytest.mark.usefixtures('inputs')
+def test_consensus_rules_recipe(b):
+    brand_priv, brand_pub = crypto.generate_key_pair()
+    sicpa_priv, sicpa_pub = crypto.generate_key_pair()
+    clarion_priv, clarion_pub = crypto.generate_key_pair()
+
+    # recipe stages:
+    # 1) PUBLISH RECIPE
+    #    - FROM: BRAND, TO: BRAND
+    #    - created by brand and broadcasted to supply chain
+    # 2) TAGGANT ORDER
+    #    - FROM: BRAND, TO: SICPA
+    #    - should only be processed by SICPA
+    #    - only one input and one output
+    #    - has target volume/mass and concentration
+    # 3) TAGGANT READY
+    #    - FROM: SICPA, TO: SICPA
+    #    - QA on volume/mass and concentration > Certificate
+    # 3b) TAGGANT DELIVERY
+    # 4) MIX ORDER
+    #    - FROM: SICPA, TO: CLARION
+    #    - has target volume/mass and concentration
+    #    - mix properties: cannot unmix
+    # 5) MIX READY
+    #    - FROM: CLARION, TO: CLARION_WAREHOUSE, CLARION_DESTROY
+    #    - QA on target volume/mass and concentration > Certificate
+
+    tx_order = create_simple_tx(
+        brand_pub, brand_priv,
+        asset={
+            'type': 'composition',
+            'policy': [
+                {
+                    'condition': {
+                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
+                        'locals': ["transaction.metadata['state']"]
+                    },
+                    'rule': {
+                        'expr': "%0 EQ {}".format(1),
+                        'locals': ["len(transaction.outputs)"]
+                    }
+                },
+                {
+                    'condition': {
+                        'expr': "%0 EQ {}".format("TAGGANT_ORDER"),
+                        'locals': ["transaction.metadata['state']"]
+                    },
+                    'rule': {
+                        'expr': "%0 EQ {}".format(1),
+                        'locals': ["len(transaction.inputs)"]
+                    }
+                },
+                {
+                    'condition': {
+                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
+                        'locals': ["transaction.metadata['state']"]
+                    },
+                    'rule': {
+                        'expr': "%0 EQ '{}'".format(sicpa_pub),
+                        'locals': ["transaction.outputs[0].public_keys[0]"]
+                    }
+                },
+                {
+                    'condition': {
+                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
+                        'locals': ["transaction.metadata['state']"]
+                    },
+                    'rule': {
+                        'expr': "%0 EQ {}".format(1),
+                        'locals': ["len(transaction.outputs[0].public_keys)"]
+                    }
+                },
+                {
+                    'condition': {
+                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
+                        'locals': ["transaction.metadata['state']"]
+                    },
+                    'rule': {
+                        'expr': "%0 EQ {}".format(1),
+                        'locals': ["len(transaction.inputs[0].owners_before)"]
+                    }
+                },
+                {
+                    'condition': {
+                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
+                        'locals': ["transaction.metadata['state']"]
+                    },
+                    'rule': {
+                        'expr': "%0 EQ {}".format(1),
+                        'locals': ["len(transaction.outputs[0].public_keys)"]
+                    }
+                },
+                {
+                    'condition': {
+                        'expr': "%0 EQ '{}'".format("TAGGANT_READY"),
+                        'locals': ["transaction.metadata['state']"]
+                    },
+                    'rule': {
+                        'expr': "%0 EQ {}".format(1000),
+                        'locals': ["transaction.metadata['conservation']['volume']"]
+                    }
+                },
+                {
+                    'condition': {
+                        'expr': "%0 EQ '{}'".format("TAGGANT_READY"),
+                        'locals': ["transaction.metadata['state']"]
+                    },
+                    'rule': {
+                        'expr': "%0 EQ {}".format(0.99),
+                        'locals': ["transaction.metadata['conservation']['concentration']"]
+                    }
+                },
+            ]
+        },
+        metadata={
+            'state': "INIT"
+        })
+    response = post_tx(b, None, tx_order)
+    assert response.status_code == 202
+
+    from bigchaindb.models import Transaction
+
+    tx_taggant_order = Transaction.transfer(
+        tx_order.to_inputs(),
+        [([sicpa_pub], 1)],
+        tx_order.id,
+        metadata={
+            'state': "TAGGANT_ORDER",
+            'conservation': {
+                'volume': '1000',
+                'concentration': '99%'
+            }
+        }
+    )
+
+    tx_mix_signed = tx_taggant_order.sign([brand_priv])
+    response = post_tx(b, None, tx_mix_signed)
+    assert response.status_code == 202
+
+    tx_taggant_order = Transaction.transfer(
+        tx_order.to_inputs(),
+        [([sicpa_pub], 1)],
+        tx_order.id,
+        metadata={
+            'state': "TAGGANT_ORDER",
+            'conservation': {
+                'volume': '1000',
+                'concentration': '99%'
+            }
+        }
+    )
+
+    tx_mix_signed = tx_taggant_order.sign([brand_priv])
+    response = post_tx(b, None, tx_mix_signed)
     assert response.status_code == 202
 
 
