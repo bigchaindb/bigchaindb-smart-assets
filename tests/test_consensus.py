@@ -177,18 +177,8 @@ def test_consensus_rules_recipe(b):
                         'locals': ["transaction.metadata['state']"]
                     },
                     'rule': {
-                        'expr': "%0 EQ {}".format(1),
-                        'locals': ["len(transaction.outputs)"]
-                    }
-                },
-                {
-                    'condition': {
-                        'expr': "%0 EQ {}".format("TAGGANT_ORDER"),
-                        'locals': ["transaction.metadata['state']"]
-                    },
-                    'rule': {
-                        'expr': "%0 EQ {}".format(1),
-                        'locals': ["len(transaction.inputs)"]
+                        'expr': "%0 EQ {} AND %1 EQ {}".format(1, 1),
+                        'locals': ["len(transaction.outputs), len(transaction.inputs)"]
                     }
                 },
                 {
@@ -266,11 +256,7 @@ def test_consensus_rules_recipe(b):
         [([sicpa_pub], 1)],
         tx_order.id,
         metadata={
-            'state': "TAGGANT_ORDER",
-            'conservation': {
-                'volume': '1000',
-                'concentration': '99%'
-            }
+            'state': "TAGGANT_ORDER"
         }
     )
 
@@ -278,22 +264,22 @@ def test_consensus_rules_recipe(b):
     response = post_tx(b, None, tx_mix_signed)
     assert response.status_code == 202
 
-    tx_taggant_order = Transaction.transfer(
-        tx_order.to_inputs(),
-        [([sicpa_pub], 1)],
-        tx_order.id,
-        metadata={
-            'state': "TAGGANT_ORDER",
-            'conservation': {
-                'volume': '1000',
-                'concentration': '99%'
-            }
-        }
-    )
-
-    tx_mix_signed = tx_taggant_order.sign([brand_priv])
-    response = post_tx(b, None, tx_mix_signed)
-    assert response.status_code == 202
+    # tx_taggant_order = Transaction.transfer(
+    #     tx_order.to_inputs(),
+    #     [([sicpa_pub], 1)],
+    #     tx_order.id,
+    #     metadata={
+    #         'state': "TAGGANT_ORDER",
+    #         'conservation': {
+    #             'volume': '1000',
+    #             'concentration': '99%'
+    #         }
+    #     }
+    # )
+    #
+    # tx_mix_signed = tx_taggant_order.sign([brand_priv])
+    # response = post_tx(b, None, tx_mix_signed)
+    # assert response.status_code == 202
 
 
 @pytest.mark.bdb
