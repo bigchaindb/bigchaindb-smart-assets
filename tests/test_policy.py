@@ -12,12 +12,15 @@ def print_lexer(_lexer):
 
 def test_policy_lexer_string():
     test_inputs = [
-        'x = 3 * 4 + 5 * 6 AND 8'
+        '3 * 4 + 5 * 6 AND 8'
         'AND/6*4',
         'BANDANA',
         'x == djsjh + AND + d > d >= 4',
         'transaction.metadata["data"] == "test" OR 4 + 3',
-        "transaction.inputs[0].public_keys['value'] == 'somekey'"
+        "transaction.inputs[0].public_keys['value'] == 'somekey'",
+        "comma, comma",
+        "LEN(2, 2) == 2",
+        "LEN([2, 2, 3]) == 3"
     ]
 
     for test_input in test_inputs:
@@ -50,7 +53,9 @@ def test_policy_grammar_string():
         ('1 == 1 AND 3 == 3', True),
         ('1 == 1 AND 3 == "DUMMY"', False),
         ('1 == 1 OR 3 == "DUMMY"', True),
-        ('LEN([2, 2]) == 1', True)
+        ('LEN(2, 2) == 2', True),
+        ('LEN([1, 2, 3]) == 3', True),
+        ('SUM([1, 2, 3]) == 6', True)
     ]
 
     for test_input in test_inputs:
@@ -64,7 +69,9 @@ def test_policy_grammar_string():
 def test_policy_grammar_transaction(b, user_pk):
     test_inputs = [
         ('transaction.operation == "CREATE"', True),
-        ('transaction.outputs[0].public_keys[0] == "{}"'.format(user_pk), True)
+        ('transaction.outputs[0].public_keys[0] == "{}"'.format(user_pk), True),
+        ('LEN(transaction.outputs[0].public_keys[0]) == 1', True),
+        ('AMOUNT(transaction.outputs)*3 == 3', True)
     ]
 
     transaction = b.get_transaction(b.get_owned_ids(user_pk)[0].txid)

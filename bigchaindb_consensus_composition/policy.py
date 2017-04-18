@@ -9,7 +9,9 @@ class PolicyParser():
     reserved = {
         'AND': 'AND',
         'OR': 'OR',
-        'LEN': 'LEN'
+        'LEN': 'LEN',
+        'SUM': 'SUM',
+        'AMOUNT': 'AMOUNT'
     }
 
     # List of token names.   This is always required
@@ -22,6 +24,8 @@ class PolicyParser():
         'DIVIDE',
         'LPAREN',
         'RPAREN',
+        'LBRACK',
+        'RBRACK',
         'EQ',
         'LT',
         'LEQ',
@@ -39,6 +43,8 @@ class PolicyParser():
     t_DIVIDE = r'/'
     t_LPAREN = r'\('
     t_RPAREN = r'\)'
+    t_LBRACK = r'\['
+    t_RBRACK = r'\]'
     t_EQ = r'=='
     t_LT = r'<'
     t_GT = r'>'
@@ -81,7 +87,7 @@ class PolicyParser():
         return self.parser.parse(*args, **kwargs)
 
     def t_TX(self, t):
-        r'transaction.[a-zA-Z_0-9\'\"\[\]\(\)\.]*'
+        r'transaction.[a-zA-Z_0-9\'\"\[\]\.]*'
         try:
             # TODO: improve eval (should be somewhat safeguarded)
             value = eval('self.' + t.value)
@@ -138,33 +144,6 @@ class PolicyParser():
         elif p[2] == '/':
             p[0] = p[1] / p[3]
 
-    def p_expression_uminus(self, p):
-        """expression : MINUS expression %prec UMINUS"""
-        p[0] = -p[2]
-
-    def p_expression_term(self, p):
-        """expression : term"""
-        p[0] = p[1]
-
-    def p_term_factor(self, p):
-        """term : factor"""
-        p[0] = p[1]
-
-    def p_factor(self, p):
-        """factor : NUMBER
-                  | STRING
-                  | ID
-                  | TX"""
-        p[0] = p[1]
-
-    def p_factor_expr(self, p):
-        """factor : LPAREN expression RPAREN"""
-        p[0] = p[2]
-
-    def p_type_list_2(self, p):
-        '''factor_list : factor_list COMMA factor'''
-        p[0] = p[1] + [p[3]]
-
     def p_comparison(self, p):
         """expression : expression EQ expression
                       | expression GT expression
@@ -190,9 +169,59 @@ class PolicyParser():
         elif p[2] == 'OR':
             p[0] = p[1] or p[3]
 
-    def p_aggregate(self, p):
-        """expression : LEN expression"""
-        p[0] = len(p[2])
+    def p_expression_uminus(self, p):
+        """expression : MINUS expression %prec UMINUS"""
+        p[0] = -p[2]
+
+    def p_expression_term(self, p):
+        """expression : term"""
+        p[0] = p[1]
+
+    def p_expression_aggregate(self, p):
+        """expression : func LPAREN list RPAREN"""
+        if p[1] == 'LEN':
+            p[0] = len(p[3])
+        elif p[1] == 'SUM':
+            p[0] = sum(p[3])
+        elif p[1] == 'AMOUNT':
+            # TODO prechecks
+            p[0] = sum([output.amount for output in p[3]])
+
+    def p_list_term(self, p):
+        """list : term
+                | list COMMA term"""
+        if len(p) == 2:
+            if isinstance(p[1], list):
+                p[0] = p[1]
+            else:
+                p[0] = [p[1]]
+        else:
+            p[0] = p[1] + [p[3]]
+
+    def p_list(self, p):
+        """list : LBRACK list RBRACK"""
+        p[0] = p[2]
+
+    def p_term_factor(self, p):
+        """term : factor"""
+        p[0] = p[1]
+
+    def p_functions(self, p):
+        """func : LEN
+                | SUM
+                | AMOUNT"""
+        p[0] = p[1]
+
+    def p_factor(self, p):
+        """factor : NUMBER
+                  | STRING
+                  | ID
+                  | TX"""
+        p[0] = p[1]
+
+    def p_factor_expr(self, p):
+        """factor : LPAREN expression RPAREN"""
+        p[0] = p[2]
 
     # Error rule for syntax errors
     def p_error(self, p):
