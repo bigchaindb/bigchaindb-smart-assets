@@ -94,6 +94,8 @@ class AssetCompositionConsensusRules(BaseConsensusRules):
                 except (AttributeError, KeyError) as e:
                     raise ValidationError(
                         'Wrong policy format: {}'.format(policy))
+                except TypeError as e:
+                    pass
 
         if transaction.operation == Transaction.TRANSFER:
             pass

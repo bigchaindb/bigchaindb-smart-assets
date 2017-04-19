@@ -3,8 +3,8 @@
 
 from setuptools import setup
 
-with open('README.rst') as readme_file:
-    readme = readme_file.read()
+# with open('README.rst') as readme_file:
+#     readme = readme_file.read()
 
 with open('CHANGELOG.rst') as changelog_file:
     changelog = changelog_file.read()
@@ -42,7 +42,7 @@ setup(
     name='bigchaindb_consensus_composition',
     version='0.0.1',
     description="Composition consensus plugin for BigchainDB",
-    long_description=readme + '\n\n' + changelog,
+    long_description=changelog,
     author="BigchainDB",
     author_email='dev@bigchaindb.com',
     url='https://github.com/ascribe/bigchaindb-consensus-plugin-composition',
@@ -74,7 +74,7 @@ setup(
     test_suite='tests',
     extras_require={
         'test': tests_require,
-        'dev': dev_require + tests_require + docs_require,
+        'dev': dev_require + tests_require,
         'docs': docs_require,
     },
 )
