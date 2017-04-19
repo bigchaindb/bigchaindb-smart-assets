@@ -46,7 +46,7 @@ def test_policy_lexer_transaction(b, user_pk):
 
 def test_policy_grammar_string():
     test_inputs = [
-        (' "3" * (4 + 5 * 6) == 102', True),
+        (' "3" * (4 + 5 * 6) == 102', False),
         (' 3 * (4 + 5 * 6) > 100', True),
         (' 3 * (4 + 5 * 6) < 103', True),
         ('"TEST" == "TEST"', True),
@@ -71,7 +71,8 @@ def test_policy_grammar_transaction(b, user_pk):
         ('transaction.operation == "CREATE"', True),
         ('transaction.outputs[0].public_keys[0] == "{}"'.format(user_pk), True),
         ('LEN(transaction.outputs[0].public_keys[0]) == 1', True),
-        ('AMOUNT(transaction.outputs)*3 == 3', True)
+        ('AMOUNT(transaction.outputs)*3 == 3', True),
+        ("transaction.outputs[0].public_keys[0] == '{}'".format(user_pk), True),
     ]
 
     transaction = b.get_transaction(b.get_owned_ids(user_pk)[0].txid)

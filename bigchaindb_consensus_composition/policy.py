@@ -98,18 +98,18 @@ class PolicyParser():
             t.lexer.skip(1)
         return t
 
+    def t_STRING(self, t):
+        r'[\"\']+[a-zA-Z_0-9]*[\"\']+'
+        t.type = self.reserved.get(t.value, 'STRING')  # Check for reserved words
+        t.value = str(t.value[1:-1])
+        return t
+
     # A regular expression rule with some action code
     def t_NUMBER(self, t):
         r'[\"\']*\d+[\"\']*'
         if isinstance(t.value, str):
             t.value = re.sub('[\'\"]', '', t.value)
         t.value = int(t.value)
-        return t
-
-    def t_STRING(self, t):
-        r'[\"\']+[a-zA-Z_0-9]*[\"\']+'
-        t.type = self.reserved.get(t.value, 'STRING')  # Check for reserved words
-        t.value = str(t.value[1:-1])
         return t
 
     def t_ID(self, t):

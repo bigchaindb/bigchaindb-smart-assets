@@ -81,24 +81,12 @@ def test_consensus_rules(b):
             'type': 'composition',
             'policy': [
                 {
-                    'condition': {
-                        'expr': '%0 EQ {}'.format('"INIT"'),
-                        'locals': ['transaction.metadata["state"]']
-                    },
-                    'rule': {
-                        'expr': '%0 EQ %1',
-                        'locals': ['transaction.inputs[:].amount', 'transaction.outputs[:].amount']
-                    }
+                    'condition': 'transaction.metadata["state"] == "INIT"',
+                    'rule': 'AMOUNT(transaction.outputs) == 1'
                 },
                 {
-                    'condition': {
-                        'expr': '%0 EQ {}'.format(alice_pub),
-                        'locals': ['transaction.metadata']
-                    },
-                    'rule': {
-                        'expr': '%0 EQ 1',
-                        'locals': ['transaction.outputs[:].amount']
-                    }
+                    'condition': 'transaction.inputs[0].owners_before == "{}"'.format(alice_pub),
+                    'rule': 'LEN(transaction.outputs) == 1'
                 },
             ]
         },
@@ -120,14 +108,8 @@ def test_consensus_rules_frontend(b):
             'type': 'composition',
             'policy': [
                 {
-                    'condition': {
-                        'expr': "'INIT' EQ 'INIT'",
-                        'locals': []
-                    },
-                    'rule': {
-                        'expr': "'0' EQ '0'",
-                        'locals': []
-                    }
+                    'condition': "'INIT' == 'INIT'",
+                    'rule': "'INIT' == 'INIT'"
                 },
             ]
         },
@@ -172,75 +154,39 @@ def test_consensus_rules_recipe(b):
             'type': 'composition',
             'policy': [
                 {
-                    'condition': {
-                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
-                        'locals': ["transaction.metadata['state']"]
-                    },
-                    'rule': {
-                        'expr': "%0 EQ {} AND %1 EQ {}".format(1, 1),
-                        'locals': ["len(transaction.outputs), len(transaction.inputs)"]
-                    }
+                    'condition':
+                        "transaction.metadata['state'] == 'TAGGANT_ORDER'",
+                    'rule':
+                        "LEN(transaction.outputs) == 1"
+                        " AND LEN(transaction.inputs) == 1"
+                        " AND LEN(transaction.outputs[0].public_keys) == 1"
+                        " AND LEN(transaction.inputs[0].owners_before) == 1"
+                        " AND transaction.outputs[0].public_keys[0] == '{}'"
+                            .format(sicpa_pub),
                 },
                 {
-                    'condition': {
-                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
-                        'locals': ["transaction.metadata['state']"]
-                    },
-                    'rule': {
-                        'expr': "%0 EQ '{}'".format(sicpa_pub),
-                        'locals': ["transaction.outputs[0].public_keys[0]"]
-                    }
+                    'condition':
+                        "transaction.metadata['state'] == 'TAGGANT_READY'",
+                    'rule':
+                        "AMOUNT(transaction.outputs) == 1000"
+                        " AND transaction.metadata['concentration'] > 95"
+                        " AND transaction.inputs[0].owners_before[0] == '{}'"
+                        " AND ( transaction.outputs[0].public_keys[0] == '{}'"
+                        " OR transaction.outputs[0].public_keys[0] == '{}')"
+                            .format(sicpa_pub, sicpa_pub, clarion_pub)
                 },
                 {
-                    'condition': {
-                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
-                        'locals': ["transaction.metadata['state']"]
-                    },
-                    'rule': {
-                        'expr': "%0 EQ {}".format(1),
-                        'locals': ["len(transaction.outputs[0].public_keys)"]
-                    }
+                    'condition':
+                        "transaction.metadata['state'] == 'MIX_READY'",
+                    'rule':
+                        "AMOUNT(transaction.outputs) >= 4000"
+                        " AND transaction.metadata['concentration'] > 20"
+                        " AND ( transaction.inputs[0].owners_before[0] == '{}'"
+                        " OR transaction.inputs[0].owners_before[0] == '{}')"
+                        " AND transaction.outputs[0].public_keys[0] == '{}'"
+                            .format(sicpa_pub, clarion_pub, clarion_pub)
                 },
-                {
-                    'condition': {
-                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
-                        'locals': ["transaction.metadata['state']"]
-                    },
-                    'rule': {
-                        'expr': "%0 EQ {}".format(1),
-                        'locals': ["len(transaction.inputs[0].owners_before)"]
-                    }
-                },
-                {
-                    'condition': {
-                        'expr': "%0 EQ '{}'".format("TAGGANT_ORDER"),
-                        'locals': ["transaction.metadata['state']"]
-                    },
-                    'rule': {
-                        'expr': "%0 EQ {}".format(1),
-                        'locals': ["len(transaction.outputs[0].public_keys)"]
-                    }
-                },
-                {
-                    'condition': {
-                        'expr': "%0 EQ '{}'".format("TAGGANT_READY"),
-                        'locals': ["transaction.metadata['state']"]
-                    },
-                    'rule': {
-                        'expr': "%0 EQ {}".format(1000),
-                        'locals': ["transaction.metadata['conservation']['volume']"]
-                    }
-                },
-                {
-                    'condition': {
-                        'expr': "%0 EQ '{}'".format("TAGGANT_READY"),
-                        'locals': ["transaction.metadata['state']"]
-                    },
-                    'rule': {
-                        'expr': "%0 EQ {}".format(0.99),
-                        'locals': ["transaction.metadata['conservation']['concentration']"]
-                    }
-                },
+
             ]
         },
         metadata={
@@ -260,71 +206,55 @@ def test_consensus_rules_recipe(b):
         }
     )
 
-    tx_mix_signed = tx_taggant_order.sign([brand_priv])
-    response = post_tx(b, None, tx_mix_signed)
+    tx_taggant_order_signed = tx_taggant_order.sign([brand_priv])
+    response = post_tx(b, None, tx_taggant_order_signed)
     assert response.status_code == 202
 
-    # tx_taggant_order = Transaction.transfer(
-    #     tx_order.to_inputs(),
-    #     [([sicpa_pub], 1)],
-    #     tx_order.id,
-    #     metadata={
-    #         'state': "TAGGANT_ORDER",
-    #         'conservation': {
-    #             'volume': '1000',
-    #             'concentration': '99%'
-    #         }
-    #     }
-    # )
-    #
-    # tx_mix_signed = tx_taggant_order.sign([brand_priv])
-    # response = post_tx(b, None, tx_mix_signed)
-    # assert response.status_code == 202
-
-
-@pytest.mark.bdb
-@pytest.mark.usefixtures('inputs')
-def test_asset_type_mix(b, client):
-    from bigchaindb.models import Transaction
-
-    alice_priv, alice_pub = crypto.generate_key_pair()
-
-    create_a = create_simple_tx(
-        alice_pub, alice_priv,
-        asset={
-            'type': 'mix',
-            'data': {
-                'material': 'secret sauce'
-            }
-        })
-    response = post_tx(b, client, create_a)
-    assert response.status_code == 202
-
-    transfer_a = transfer_simple_tx(alice_pub, alice_priv, create_a)
-    response = post_tx(b, client, transfer_a)
-    assert response.status_code == 202
-
-    bob_priv, bob_pub = crypto.generate_key_pair()
-    tx_b = create_simple_tx(
-        bob_pub,
-        bob_priv,
-        asset={
-            'type': 'mix',
-            'data': {
-                'material': 'bulk'
-            }
-        })
-    response = post_tx(b, client, tx_b)
-    assert response.status_code == 202
-
-    carly_priv, carly_pub = crypto.generate_key_pair()
-
-    tx_mix = Transaction.transfer(
-        transfer_a.to_inputs() + tx_b.to_inputs(),
-        [([carly_pub], 1)],
-        transfer_a.id
+    taggant_amount = 1000
+    tx_taggant_ready = Transaction.transfer(
+        tx_taggant_order.to_inputs(),
+        [([clarion_pub], taggant_amount)],
+        tx_order.id,
+        metadata={
+            'state': "TAGGANT_READY",
+            'concentration': 97
+        }
     )
 
-    tx_mix_signed = tx_mix.sign([alice_priv, bob_priv])
-    response = post_tx(b, client, tx_mix_signed)
+    tx_taggant_ready_signed = tx_taggant_ready.sign([sicpa_priv])
+    response = post_tx(b, None, tx_taggant_ready_signed)
     assert response.status_code == 202
+
+    plastic_amount = 3500
+
+    tx_plastic = Transaction.create(
+        [clarion_pub],
+        [([clarion_pub], plastic_amount)],
+        asset={
+            'data': {
+                'type': 'composition'
+            }
+        },
+        metadata={
+            'state': "PLASTIC_READY"
+        }
+    )
+    tx_plastic_signed = tx_plastic.sign([clarion_priv])
+    response = post_tx(b, None, tx_plastic_signed)
+    assert response.status_code == 202
+
+    mix_amount = 4500
+    tx_mix_ready = Transaction.transfer(
+        tx_taggant_ready.to_inputs() + tx_plastic.to_inputs(),
+        [([clarion_pub], mix_amount)],
+        tx_order.id,
+        metadata={
+            'state': "MIX_READY",
+            'concentration': 97
+        }
+    )
+
+    tx_mix_ready_signed = tx_mix_ready.sign([clarion_priv])
+    response = post_tx(b, None, tx_mix_ready_signed)
+    assert response.status_code == 202
+
