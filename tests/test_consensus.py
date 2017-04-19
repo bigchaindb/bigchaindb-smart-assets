@@ -123,57 +123,57 @@ def test_consensus_rules_frontend(b):
 @pytest.mark.bdb
 @pytest.mark.usefixtures('inputs')
 def test_consensus_rules_recipe(b):
-    brand_priv, brand_pub = crypto.generate_key_pair()
-    sicpa_priv, sicpa_pub = crypto.generate_key_pair()
-    clarion_priv, clarion_pub = crypto.generate_key_pair()
+    albi_priv, albi_pub = crypto.generate_key_pair()
+    bruce_priv, bruce_pub = crypto.generate_key_pair()
+    carly_priv, carly_pub = crypto.generate_key_pair()
 
     # recipe stages:
     # 1) PUBLISH RECIPE
-    #    - FROM: BRAND, TO: BRAND
-    #    - created by brand and broadcasted to supply chain
-    # 2) TAGGANT ORDER
-    #    - FROM: BRAND, TO: SICPA
-    #    - should only be processed by SICPA
+    #    - FROM: ALBI, TO: ALBI
+    #    - created by albi and broadcasted to supply chain
+    # 2) CONCENTRATE ORDER
+    #    - FROM: ALBI, TO: BRUCE
+    #    - should only be processed by BRUCE
     #    - only one input and one output
     #    - has target volume/mass and concentration
-    # 3) TAGGANT READY
-    #    - FROM: SICPA, TO: SICPA
+    # 3) CONCENTRATE READY
+    #    - FROM: BRUCE, TO: BRUCE
     #    - QA on volume/mass and concentration > Certificate
-    # 3b) TAGGANT DELIVERY
+    # 3b) CONCENTRATE DELIVERY
     # 4) MIX ORDER
-    #    - FROM: SICPA, TO: CLARION
+    #    - FROM: BRUCE, TO: CARLY
     #    - has target volume/mass and concentration
     #    - mix properties: cannot unmix
     # 5) MIX READY
-    #    - FROM: CLARION, TO: CLARION_WAREHOUSE, CLARION_DESTROY
+    #    - FROM: CARLY, TO: CARLY_WAREHOUSE, CARLY_DESTROY
     #    - QA on target volume/mass and concentration > Certificate
 
     tx_order = create_simple_tx(
-        brand_pub, brand_priv,
+        albi_pub, albi_priv,
         asset={
             'type': 'composition',
             'policy': [
                 {
                     'condition':
-                        "transaction.metadata['state'] == 'TAGGANT_ORDER'",
+                        "transaction.metadata['state'] == 'CONCENTRATE_ORDER'",
                     'rule':
                         "LEN(transaction.outputs) == 1"
                         " AND LEN(transaction.inputs) == 1"
                         " AND LEN(transaction.outputs[0].public_keys) == 1"
                         " AND LEN(transaction.inputs[0].owners_before) == 1"
                         " AND transaction.outputs[0].public_keys[0] == '{}'"
-                            .format(sicpa_pub),
+                            .format(bruce_pub),
                 },
                 {
                     'condition':
-                        "transaction.metadata['state'] == 'TAGGANT_READY'",
+                        "transaction.metadata['state'] == 'CONCENTRATE_READY'",
                     'rule':
                         "AMOUNT(transaction.outputs) == 1000"
                         " AND transaction.metadata['concentration'] > 95"
                         " AND transaction.inputs[0].owners_before[0] == '{}'"
                         " AND ( transaction.outputs[0].public_keys[0] == '{}'"
                         " OR transaction.outputs[0].public_keys[0] == '{}')"
-                            .format(sicpa_pub, sicpa_pub, clarion_pub)
+                            .format(bruce_pub, bruce_pub, carly_pub)
                 },
                 {
                     'condition':
@@ -184,7 +184,7 @@ def test_consensus_rules_recipe(b):
                         " AND ( transaction.inputs[0].owners_before[0] == '{}'"
                         " OR transaction.inputs[0].owners_before[0] == '{}')"
                         " AND transaction.outputs[0].public_keys[0] == '{}'"
-                            .format(sicpa_pub, clarion_pub, clarion_pub)
+                            .format(bruce_pub, carly_pub, carly_pub)
                 },
 
             ]
@@ -197,56 +197,56 @@ def test_consensus_rules_recipe(b):
 
     from bigchaindb.models import Transaction
 
-    tx_taggant_order = Transaction.transfer(
+    tx_concentrate_order = Transaction.transfer(
         tx_order.to_inputs(),
-        [([sicpa_pub], 1)],
+        [([bruce_pub], 1)],
         tx_order.id,
         metadata={
-            'state': "TAGGANT_ORDER"
+            'state': "CONCENTRATE_ORDER"
         }
     )
 
-    tx_taggant_order_signed = tx_taggant_order.sign([brand_priv])
-    response = post_tx(b, None, tx_taggant_order_signed)
+    tx_concentrate_order_signed = tx_concentrate_order.sign([albi_priv])
+    response = post_tx(b, None, tx_concentrate_order_signed)
     assert response.status_code == 202
 
-    taggant_amount = 1000
-    tx_taggant_ready = Transaction.transfer(
-        tx_taggant_order.to_inputs(),
-        [([clarion_pub], taggant_amount)],
+    concentrate_amount = 1000
+    tx_concentrate_ready = Transaction.transfer(
+        tx_concentrate_order.to_inputs(),
+        [([carly_pub], concentrate_amount)],
         tx_order.id,
         metadata={
-            'state': "TAGGANT_READY",
+            'state': "CONCENTRATE_READY",
             'concentration': 97
         }
     )
 
-    tx_taggant_ready_signed = tx_taggant_ready.sign([sicpa_priv])
-    response = post_tx(b, None, tx_taggant_ready_signed)
+    tx_concentrate_ready_signed = tx_concentrate_ready.sign([bruce_priv])
+    response = post_tx(b, None, tx_concentrate_ready_signed)
     assert response.status_code == 202
 
-    plastic_amount = 3500
+    bulk_amount = 3500
 
-    tx_plastic = Transaction.create(
-        [clarion_pub],
-        [([clarion_pub], plastic_amount)],
+    tx_bulk = Transaction.create(
+        [carly_pub],
+        [([carly_pub], bulk_amount)],
         asset={
             'data': {
                 'type': 'composition'
             }
         },
         metadata={
-            'state': "PLASTIC_READY"
+            'state': "BULK_READY"
         }
     )
-    tx_plastic_signed = tx_plastic.sign([clarion_priv])
-    response = post_tx(b, None, tx_plastic_signed)
+    tx_bulk_signed = tx_bulk.sign([carly_priv])
+    response = post_tx(b, None, tx_bulk_signed)
     assert response.status_code == 202
 
     mix_amount = 4500
     tx_mix_ready = Transaction.transfer(
-        tx_taggant_ready.to_inputs() + tx_plastic.to_inputs(),
-        [([clarion_pub], mix_amount)],
+        tx_concentrate_ready.to_inputs() + tx_bulk.to_inputs(),
+        [([carly_pub], mix_amount)],
         tx_order.id,
         metadata={
             'state': "MIX_READY",
@@ -254,7 +254,7 @@ def test_consensus_rules_recipe(b):
         }
     )
 
-    tx_mix_ready_signed = tx_mix_ready.sign([clarion_priv])
+    tx_mix_ready_signed = tx_mix_ready.sign([carly_priv])
     response = post_tx(b, None, tx_mix_ready_signed)
     assert response.status_code == 202
 
