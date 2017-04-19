@@ -49,6 +49,7 @@ def test_policy_grammar_string():
         (' "3" * (4 + 5 * 6) == 102', False),
         (' 3 * (4 + 5 * 6) > 100', True),
         (' 3 * (4 + 5 * 6) < 103', True),
+        ("3 * (4 + 5 * 6) > 100 AND ('TEST' == 'TEST' OR 'DUMMY' == 'TEST')", True),
         ('"TEST" == "TEST"', True),
         ('1 == 1 AND 3 == 3', True),
         ('1 == 1 AND 3 == "DUMMY"', False),

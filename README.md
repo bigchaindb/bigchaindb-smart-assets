@@ -67,15 +67,14 @@ asset = {
     "type": "composition",
     "policy": [
         {
-            "condition": {
-                "expr": "<expression>",
-                "locals": ["<variables to be evaluated>"]
-            },
-            "rule": {
-                "expr": "<expression>",
-                "locals": ["<variables to be evaluated>"]
-            }
-        }
+            "condition": "<expression:if>",
+            "rule": "<expression:check>"
+        },
+        {
+            "condition": "<expression:if>",
+            "rule": "<expression:check>"
+        },
+        ...
     ]
 }
 
@@ -89,12 +88,14 @@ This means that each rule needs to be checked under a specific condition (ie. a 
 In technical terms, the recipe is made up as follows:
 
 ```
-IF <condition1>
-CHECK <rule1>
+IF <expression1>
+CHECK <expression2>
 ...
-IF <conditionN>
-CHECK <ruleN>
+IF <expressionN>
+CHECK <expressionN+1>
 ```
+
+Both `condition` and `rule` use the same expression language, see below.
 
 ### Conditions
 
@@ -114,39 +115,56 @@ Some example rules could be:
 ### Language
 
 There are many possible languages to implement the above conditions and rules. 
-For this prototype we chose to limit the functional scope in order not to deal with too many complexity vs security constraints.
+For this prototype we chose to limit the functional scope in order not to deal 
+with too many complexity vs security constraints.
 
-The language exists of triples `(subject, predicate, object)` and can be parametrized in `subject` and `object` through the use of locals.
-An example expression could be:
+The language exists of simple arithemetic and boolean logic:
 
 ```json
 { 
-    "expr": "%0 EQ 'INIT'",
-    "locals": ["transaction.metadata['state']"]
+    "condition": "3 * (4 + 5 * 6) > 100 AND ('TEST' == 'TEST' OR 'DUMMY' == 'TEST')"
 }
 ```
-Which would be interpreted by the consensus engine as:
+The compiler parses the integers and strings and then applies the precedence rules and logic, yielding `True`.
 
-_The `state` (encoded in `transaction.metadata`) needs to be equal (`EQ`) to `'INIT'`_
+The `transaction` object is available during compilation and execution, which allows to verify fields in the current transaction:
 
-Notice that the content of a transaction can be used inside of the conditions and rules.
+```json
+{ 
+    "condition": "transaction.metadata['state'] == 'INIT' or transaction.operation == 'CREATE'"
+}
+```
+
+Notice that the content of a transaction can be used inside both conditions and rules.
 The values need to be resolved first, hence they are put in the `locals` field and referred to by index: `%<index>`.
 
 Strings are injected by surrounding with single quotes (`'`) if the JSON format is using double quotes (and vice versa).
 
 #### Keywords
 
+- Variables:
+  - Integers
+  - Strings: denoted by single `'<string>'` or double `"<string>"` quotes
+  - Arrays: denoted by square brackets: `[<item1>, ..., <itemN> ]`
+- Precedence:
+  - Regular precedence for `*`, `/`, `+`, `-`
+  - Round brackets to enforce precedence
 - Logic:
-  - `AND`, `OR`, `NOT` 
-- Predicates: 
-  - `EQ`: Equality of strings, integers and doubles (`==`)
-  - `NEQ`: Not-equal to (`!=`) 
-  - `LEQ`: Less than or equal to (`<=`)  
-  - `LT`: Less than (`<`)
+  - `AND`, `OR`
+- Comparison: 
+  - `==`: Equality of strings and integers
+  - `!=`: Not-equal
+  - `<=`: Less than or equal to  
+  - `<`: Less than
+  - `>=`: More than or equal to   
+  - `>`: More than
 - Aggregates/Lists:
   - `LEN(<list>)`: The length of a list
   - `SUM(<list of int/double>)`: The sum of a list of values
-  - `<object> IN <list>`: Boolean function to check if an element is in a list  
+  - `AMOUNT(<list of outputs>)`: Amount at transaction output `sum([output.amount for output in outputs])`  
+- TODO's:
+  - `IN`: check if an item belongs to a list
+  - `@`: reference another transaction or an input
 
 ### Examples
 
@@ -156,19 +174,24 @@ Strings are injected by surrounding with single quotes (`'`) if the JSON format 
 
 ```json
 { 
-    "expr": "%0 EQ 'INIT' OR %1 EQ 'CREATE'",
-    "locals": ["transaction.metadata['state']", "transaction.operation"]
+    "condition": "transaction.metadata['state'] == 'INIT'"
+}
+```
+
+```json
+{ 
+    "condition": "transaction.operation == 'CREATE'"
 }
 ```
 
 #### Aggregates/Lists:
 
-##### Same amount of inputs and outputs
+##### Check the amount at the outputs
 
 ```json
 { 
-    "expr": "LEN(%0) EQ LEN(%1)",
-    "locals": ["transaction.inputs", "transaction.outputs"]
+    "condition": "transaction.metadata['state'] == 'INIT'",
+    "rule": "LEN(transaction.outputs) == 1"
 }
 ```
 
@@ -176,8 +199,51 @@ Strings are injected by surrounding with single quotes (`'`) if the JSON format 
 
 ```json
 { 
-    "expr": "%0 IN [%1, %2]",
-    "locals": ["transaction.outputs[0].public_keys[0]", "<some_public_key>", "<another_public_key>"]
+    "condition": "transaction.inputs[0].owners_before[0] == 'carly'",
+    "rule": "transaction.outputs[0].public_keys[0] == 'albi' OR transaction.outputs[0].public_keys[0] == 'bruce'"
 }
 ```
 
+##### A more elaborate mixing recipe example
+
+```python
+asset={
+    'type': 'composition',
+    'policy': [
+        {
+            'condition':
+                "transaction.metadata['state'] == 'ORDER'",
+            'rule':
+                "LEN(transaction.outputs) == 1"
+                " AND LEN(transaction.inputs) == 1"
+                " AND LEN(transaction.outputs[0].public_keys) == 1"
+                " AND LEN(transaction.inputs[0].owners_before) == 1"
+                " AND transaction.outputs[0].public_keys[0] == '{}'"
+                    .format(albi_pub),
+        },
+        {
+            'condition':
+                "transaction.metadata['state'] == 'ORDER_READY'",
+            'rule':
+                "AMOUNT(transaction.outputs) == 1000"
+                " AND transaction.metadata['concentration'] > 95"
+                " AND transaction.inputs[0].owners_before[0] == '{}'"
+                " AND ( transaction.outputs[0].public_keys[0] == '{}'"
+                " OR transaction.outputs[0].public_keys[0] == '{}')"
+                    .format(albi_pub, albi_pub, bruce_pub)
+        },
+        {
+            'condition':
+                "transaction.metadata['state'] == 'MIX_READY'",
+            'rule':
+                "AMOUNT(transaction.outputs) >= 4000"
+                " AND transaction.metadata['concentration'] > 20"
+                " AND ( transaction.inputs[0].owners_before[0] == '{}'"
+                " OR transaction.inputs[0].owners_before[0] == '{}')"
+                " AND transaction.outputs[0].public_keys[0] == '{}'"
+                    .format(bruce_pub, carly_pub, carly_pub)
+        },
+
+    ]
+},
+```
