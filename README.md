@@ -184,16 +184,6 @@ Strings are injected by surrounding with single quotes (`'`) if the JSON format 
 }
 ```
 
-#### Aggregates/Lists:
-
-##### Check the amount at the outputs
-
-```json
-{ 
-    "condition": "transaction.metadata['state'] == 'INIT'",
-    "rule": "LEN(transaction.outputs) == 1"
-}
-```
 
 ##### Transaction can only be given to specific users
 
@@ -201,6 +191,33 @@ Strings are injected by surrounding with single quotes (`'`) if the JSON format 
 { 
     "condition": "transaction.inputs[0].owners_before[0] == 'carly'",
     "rule": "transaction.outputs[0].public_keys[0] == 'albi' OR transaction.outputs[0].public_keys[0] == 'bruce'"
+}
+```
+
+#### Aggregates/Lists:
+
+```json
+{
+    "condition": "SUM([1, 3, 4]) > 5"
+}
+```
+
+
+##### Check the amount at the outputs
+
+```json
+{ 
+    "condition": "transaction.metadata['state'] == 'INIT'",
+    "rule": "AMOUNT(transaction.outputs) == 1"
+}
+```
+
+##### Check the number of inputs, outputs, public_keys
+
+```json
+{ 
+    "condition": "LEN(transaction.inputs) == 1",
+    "rule": "LEN(transaction.outputs) == 1 AND LEN(transactions.outputs[0].public_keys) == 2"
 }
 ```
 
