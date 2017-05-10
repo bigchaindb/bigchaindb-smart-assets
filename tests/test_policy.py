@@ -1,5 +1,5 @@
 import pytest
-from bigchaindb_consensus_composition.policy import PolicyParser
+from bigchaindb_smart_assets.policy import PolicyParser
 
 
 def print_lexer(_lexer):

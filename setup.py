@@ -10,6 +10,8 @@ with open('CHANGELOG.rst') as changelog_file:
     changelog = changelog_file.read()
 
 install_requires = [
+    'ply',
+    'kyber'
 ]
 
 tests_require = [
@@ -39,7 +41,7 @@ docs_require = [
 ]
 
 setup(
-    name='bigchaindb_consensus_composition',
+    name='bigchaindb_smart_assets',
     version='0.0.1',
     description="Composition consensus plugin for BigchainDB",
     long_description=changelog,
@@ -47,22 +49,25 @@ setup(
     author_email='dev@bigchaindb.com',
     url='https://github.com/ascribe/bigchaindb-consensus-plugin-composition',
     packages=[
-        'bigchaindb_consensus_composition',
+        'bigchaindb_smart_assets',
     ],
     # Replace `PLUGIN_NAME` with a unique, unambiguous name to identify your
     # rules. You can also add multiple entry_points for different rules sets.
     entry_points={
         'bigchaindb.consensus': [
-            'consensus_asset_composition=bigchaindb_consensus_composition.consensus:AssetCompositionConsensusRules'
+            'consensus_asset_composition=bigchaindb_smart_assets.consensus:AssetCompositionConsensusRules'
         ]
     },
-    package_dir={'bigchaindb_consensus_composition':
-                 'bigchaindb_consensus_composition'},
+    package_dir={'bigchaindb_smart_assets':
+                 'bigchaindb_smart_assets'},
     include_package_data=True,
     install_requires=install_requires,
+    dependency_links=[
+          'git+https://github.com/bigchaindb/bigchaindb.git@kyber-master#egg=kyber',
+      ],
     license="Apache Software License 2.0",
     zip_safe=False,
-    keywords='bigchaindb_consensus_composition',
+    keywords='bigchaindb_smart_assets',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

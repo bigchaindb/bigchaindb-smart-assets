@@ -2,7 +2,7 @@ from bigchaindb.common.exceptions import ValidationError
 from bigchaindb.consensus import BaseConsensusRules
 from bigchaindb.models import Transaction
 
-from bigchaindb_consensus_composition.policy import PolicyParser
+from bigchaindb_smart_assets.policy import PolicyParser
 
 ASSET_TYPE_PURE = 'pure'
 ASSET_TYPE_COMPOSITION = 'composition'

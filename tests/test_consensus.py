@@ -78,7 +78,6 @@ def test_consensus_rules(b):
     create_a = create_simple_tx(
         alice_pub, alice_priv,
         asset={
-            'type': 'composition',
             'policy': [
                 {
                     'condition': 'transaction.metadata["state"] == "INIT"',
@@ -105,7 +104,6 @@ def test_consensus_rules_frontend(b):
     create_a = create_simple_tx(
         alice_pub, alice_priv,
         asset={
-            'type': 'composition',
             'policy': [
                 {
                     'condition': "'INIT' == 'INIT'",
@@ -151,7 +149,6 @@ def test_consensus_rules_recipe(b):
     tx_order = create_simple_tx(
         albi_pub, albi_priv,
         asset={
-            'type': 'composition',
             'policy': [
                 {
                     'condition':
@@ -231,9 +228,7 @@ def test_consensus_rules_recipe(b):
         [carly_pub],
         [([carly_pub], bulk_amount)],
         asset={
-            'data': {
-                'type': 'composition'
-            }
+            'data': {}
         },
         metadata={
             'state': "BULK_READY"

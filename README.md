@@ -1,9 +1,13 @@
-# Asset Composition: Conditions and Rules
+# Smart Assets
 
 ## Intro
 
 This consensus plugin allows to compose rules for transactions at the asset level.
 Each asset can hence define a policy that will be inherited by every subsequent transaction that involves the asset.
+
+### Asset Policy
+
+### Asset Permissions
 
 ## Transaction Model
 
@@ -53,18 +57,17 @@ output = {
 }
 
 ```
-## Asset Composition
+## Asset Policy
 
 The asset model is explained in the 
 [BigchainDB documentation](https://docs.bigchaindb.com/projects/server/en/latest/data-models/asset-model.html).
 
-The `AssetCompositionConsensusPlugin` allows to define a specific asset that will provide additional consensus checks 
+The `SmartAssetPlugin` allows to define a specific asset that will provide additional consensus checks 
 (ie. when a transaction gets accepted to the chain).
 
 ```json
 
 asset = {
-    "type": "composition",
     "policy": [
         {
             "condition": "<expression:if>",
@@ -225,7 +228,6 @@ Strings are injected by surrounding with single quotes (`'`) if the JSON format 
 
 ```python
 asset={
-    'type': 'composition',
     'policy': [
         {
             'condition':
