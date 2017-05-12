@@ -2,10 +2,10 @@
 
 ## Intro
 
-This consensus plugin allows to compose rules for transactions at the asset level.
-Each asset can hence define a policy that will be inherited by every subsequent transaction that involves the asset.
 
 ### Asset Policy
+Asset policies allows to compose rules for transactions at the asset level.
+Each asset can hence define a policy that will be inherited by every subsequent transaction that involves the asset.
 
 ### Asset Permissions
 
@@ -83,7 +83,7 @@ asset = {
 
 ```
 
-## Rules-based API
+### Rules-based API
 
 The assets encode all the rules, and read like a recipe.
 This means that each rule needs to be checked under a specific condition (ie. a step in the recipe).
