@@ -4,16 +4,11 @@ from bigchaindb.models import Transaction
 
 from bigchaindb_smart_assets.policy import PolicyParser
 
-ASSET_TYPE_PURE = 'pure'
-ASSET_TYPE_COMPOSITION = 'composition'
-
-ASSET_TYPES = [
-    ASSET_TYPE_PURE,
-    ASSET_TYPE_COMPOSITION
-]
+ASSET_RULE_POLICY = 'policy'
+ASSET_RULE_ROLE = 'role'
 
 
-class AssetCompositionConsensusRules(BaseConsensusRules):
+class SmartAssetConsensusRules(BaseConsensusRules):
 
     @staticmethod
     def validate_transaction(bigchain, transaction):
@@ -24,38 +19,27 @@ class AssetCompositionConsensusRules(BaseConsensusRules):
 
         result = transaction.validate(bigchain, input_txs)
 
-        AssetCompositionConsensusRules\
+        SmartAssetConsensusRules\
             .validate_asset(bigchain, transaction, input_txs)
 
         return result
 
     @staticmethod
     def validate_asset(bigchain, transaction, input_txs):
-        assets = AssetCompositionConsensusRules\
-            .resolve_asset(bigchain, transaction, input_txs)
+        assets = SmartAssetConsensusRules \
+            .resolve_assets(bigchain, transaction, input_txs)
 
-        asset_types = set(
-            [asset['data']['type']
-             for asset in assets
-             if 'data' in asset and asset['data'] is not None
-             and 'type' in asset['data'] and asset['data']['type'] is not None
-             and asset['data']['type'] in ASSET_TYPES])
-
-        asset_type = ASSET_TYPE_PURE
-        if len(asset_types) == 1:
-            asset_type = asset_types.pop()
-        if len(asset_types) > 1:
-            raise ValidationError('Cannot mix assets')
-
-        if asset_type == ASSET_TYPE_PURE:
-            return AssetCompositionConsensusRules\
-                .validate_pure(bigchain, transaction, input_txs)
-        elif asset_type == ASSET_TYPE_COMPOSITION:
-            return AssetCompositionConsensusRules\
-                .validate_composition(bigchain, transaction, input_txs)
+        for asset in assets:
+            if asset['data'] and ASSET_RULE_POLICY in asset['data']:
+                policy = asset['data']['policy']
+                return SmartAssetConsensusRules\
+                    .validate_policy(policy, transaction)
+            else:
+                SmartAssetConsensusRules\
+                    .validate_standard(bigchain, transaction, input_txs)
 
     @staticmethod
-    def validate_pure(bigchain, transaction, input_txs):
+    def validate_standard(bigchain, transaction, input_txs):
         if transaction.operation == Transaction.TRANSFER:
             transaction.validate_asset(
                 bigchain,
@@ -63,39 +47,34 @@ class AssetCompositionConsensusRules(BaseConsensusRules):
                  for (input_, input_tx, status)
                  in input_txs if input_tx is not None])
 
-            AssetCompositionConsensusRules\
+            SmartAssetConsensusRules\
                 .validate_amount_conservation(transaction, input_txs)
 
         return transaction
 
     @staticmethod
-    def validate_composition(bigchain, transaction, input_txs):
-        asset = AssetCompositionConsensusRules \
-            .resolve_asset(bigchain, transaction, input_txs)[0]['data']
+    def validate_policy(policy, transaction):
+        if not isinstance(policy, list):
+            raise ValidationError('policy must be a list')
 
-        if 'policy' in asset:
-            policies = asset['policy']
-            if not isinstance(policies, list):
-                raise ValidationError('policy must be a list')
+        for policy_rule in policy:
+            if 'condition' not in policy_rule or'rule' not in policy_rule:
+                raise ValidationError(
+                    'policy item must contain a condition and rule')
 
-            for policy in policies:
-                if 'condition' not in policy \
-                        or'rule' not in policy:
-                    raise ValidationError(
-                        'policy item must contain a condition and rule')
+            parser = PolicyParser(transaction)
+            try:
+                if parser.parse(policy_rule['condition']) is True:
+                    if not parser.parse(policy_rule['rule']) is True:
+                        raise ValidationError(
+                            'Rule {} evaluated to false'
+                            .format(policy_rule['rule']))
 
-                parser = PolicyParser(transaction)
-                try:
-                    if parser.parse(policy['condition']) is True:
-                        if not parser.parse(policy['rule']) is True:
-                            raise ValidationError(
-                                'Rule {} evaluated to false'.format(policy['rule']))
-
-                except (AttributeError, KeyError) as e:
-                    raise ValidationError(
-                        'Wrong policy format: {}'.format(policy))
-                except TypeError as e:
-                    pass
+            except (AttributeError, KeyError) as e:
+                raise ValidationError(
+                    'Wrong policy format: {}'.format(policy_rule))
+            except TypeError as e:
+                pass
 
         if transaction.operation == Transaction.TRANSFER:
             pass
@@ -111,9 +90,10 @@ class AssetCompositionConsensusRules(BaseConsensusRules):
              if input_tx is not None])
 
     @staticmethod
-    def resolve_asset(bigchain, transaction, input_txs):
+    def resolve_assets(bigchain, transaction, input_txs):
         if not hasattr(transaction, 'asset'):
-            raise ValidationError('Asset not found in transaction {}'.format(transaction))
+            raise ValidationError('Asset not found in transaction {}'
+                                  .format(transaction))
 
         if transaction.operation == Transaction.GENESIS:
             return []

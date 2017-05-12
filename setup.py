@@ -10,8 +10,7 @@ with open('CHANGELOG.rst') as changelog_file:
     changelog = changelog_file.read()
 
 install_requires = [
-    'ply',
-    'kyber'
+    'ply'
 ]
 
 tests_require = [
@@ -55,16 +54,13 @@ setup(
     # rules. You can also add multiple entry_points for different rules sets.
     entry_points={
         'bigchaindb.consensus': [
-            'consensus_asset_composition=bigchaindb_smart_assets.consensus:AssetCompositionConsensusRules'
+            'consensus_smart_assets=bigchaindb_smart_assets.consensus:SmartAssetConsensusRules'
         ]
     },
     package_dir={'bigchaindb_smart_assets':
                  'bigchaindb_smart_assets'},
     include_package_data=True,
     install_requires=install_requires,
-    dependency_links=[
-          'git+https://github.com/bigchaindb/bigchaindb.git@kyber-master#egg=kyber',
-      ],
     license="Apache Software License 2.0",
     zip_safe=False,
     keywords='bigchaindb_smart_assets',

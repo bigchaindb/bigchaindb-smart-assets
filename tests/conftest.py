@@ -447,6 +447,6 @@ def mocked_setup_sub_logger(mocker):
 @pytest.fixture
 def b():
     from bigchaindb import Bigchain
-    from bigchaindb_smart_assets.consensus import AssetCompositionConsensusRules
-    return Bigchain(consensus_plugin=AssetCompositionConsensusRules)
+    from bigchaindb_smart_assets.consensus import SmartAssetConsensusRules
+    return Bigchain(consensus_plugin=SmartAssetConsensusRules)
 

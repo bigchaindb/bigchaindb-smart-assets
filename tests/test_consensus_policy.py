@@ -1,61 +1,11 @@
 from bigchaindb.common import crypto
-from bigchaindb.common.exceptions import ValidationError
 import pytest
-
-TX_ENDPOINT = '/api/v1/transactions/'
-
-
-def post_tx(b, client, tx):
-    class Response():
-        status_code = None
-
-    response = Response()
-    try:
-        b.validate_transaction(tx)
-        response.status_code = 202
-    except ValidationError:
-        response.status_code = 400
-
-    if response.status_code == 202:
-        mine(b, [tx])
-    return response
-
-
-def mine(b, tx_list):
-    block = b.create_block(tx_list)
-    b.write_block(block)
-
-    # vote the block valid
-    vote = b.vote(block.id, b.get_last_voted_block().id, True)
-    b.write_vote(vote)
-
-    return block, vote
-
-
-def create_simple_tx(user_pub, user_priv, asset=None, metadata=None):
-    from bigchaindb.models import Transaction
-    create_tx = Transaction.create([user_pub], [([user_pub], 1)], asset=asset, metadata=metadata)
-    create_tx = create_tx.sign([user_priv])
-    return create_tx
-
-
-def transfer_simple_tx(user_pub, user_priv, input_tx, metadata=None):
-    from bigchaindb.models import Transaction
-
-    asset_id = input_tx.id if input_tx.operation == 'CREATE' else input_tx.asset['id']
-
-    transfer_tx = Transaction.transfer(input_tx.to_inputs(),
-                                       [([user_pub], 1)],
-                                       asset_id=asset_id,
-                                       metadata=metadata)
-    transfer_tx = transfer_tx.sign([user_priv])
-
-    return transfer_tx
 
 
 @pytest.mark.bdb
 @pytest.mark.usefixtures('inputs')
 def test_consensus_load(b):
+    from .utils import create_simple_tx, post_tx
     alice_priv, alice_pub = crypto.generate_key_pair()
 
     create_a = create_simple_tx(
@@ -73,6 +23,8 @@ def test_consensus_load(b):
 @pytest.mark.bdb
 @pytest.mark.usefixtures('inputs')
 def test_consensus_rules(b):
+    from .utils import create_simple_tx, post_tx
+
     alice_priv, alice_pub = crypto.generate_key_pair()
 
     create_a = create_simple_tx(
@@ -99,6 +51,8 @@ def test_consensus_rules(b):
 @pytest.mark.bdb
 @pytest.mark.usefixtures('inputs')
 def test_consensus_rules_frontend(b):
+    from .utils import create_simple_tx, post_tx
+
     alice_priv, alice_pub = crypto.generate_key_pair()
 
     create_a = create_simple_tx(
@@ -121,6 +75,8 @@ def test_consensus_rules_frontend(b):
 @pytest.mark.bdb
 @pytest.mark.usefixtures('inputs')
 def test_consensus_rules_recipe(b):
+    from .utils import create_simple_tx, post_tx
+
     albi_priv, albi_pub = crypto.generate_key_pair()
     bruce_priv, bruce_pub = crypto.generate_key_pair()
     carly_priv, carly_pub = crypto.generate_key_pair()
@@ -159,7 +115,7 @@ def test_consensus_rules_recipe(b):
                         " AND LEN(transaction.outputs[0].public_keys) == 1"
                         " AND LEN(transaction.inputs[0].owners_before) == 1"
                         " AND transaction.outputs[0].public_keys[0] == '{}'"
-                            .format(bruce_pub),
+                        .format(bruce_pub),
                 },
                 {
                     'condition':
@@ -170,7 +126,7 @@ def test_consensus_rules_recipe(b):
                         " AND transaction.inputs[0].owners_before[0] == '{}'"
                         " AND ( transaction.outputs[0].public_keys[0] == '{}'"
                         " OR transaction.outputs[0].public_keys[0] == '{}')"
-                            .format(bruce_pub, bruce_pub, carly_pub)
+                        .format(bruce_pub, bruce_pub, carly_pub)
                 },
                 {
                     'condition':
@@ -181,7 +137,7 @@ def test_consensus_rules_recipe(b):
                         " AND ( transaction.inputs[0].owners_before[0] == '{}'"
                         " OR transaction.inputs[0].owners_before[0] == '{}')"
                         " AND transaction.outputs[0].public_keys[0] == '{}'"
-                            .format(bruce_pub, carly_pub, carly_pub)
+                        .format(bruce_pub, carly_pub, carly_pub)
                 },
 
             ]
@@ -252,4 +208,3 @@ def test_consensus_rules_recipe(b):
     tx_mix_ready_signed = tx_mix_ready.sign([carly_priv])
     response = post_tx(b, None, tx_mix_ready_signed)
     assert response.status_code == 202
-
