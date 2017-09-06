@@ -6,6 +6,8 @@ from bigchaindb_smart_assets.policy import PolicyParser
 
 ASSET_RULE_POLICY = 'policy'
 ASSET_RULE_ROLE = 'role'
+ASSET_RULE_LINK = 'link'
+METADATA_RULE_CAN_LINK = 'canLink'
 
 
 class SmartAssetConsensusRules(BaseConsensusRules):
@@ -26,6 +28,9 @@ class SmartAssetConsensusRules(BaseConsensusRules):
 
     @staticmethod
     def validate_asset(bigchain, transaction, input_txs):
+
+        SmartAssetConsensusRules.validate_link(transaction, bigchain)
+
         assets = SmartAssetConsensusRules \
             .resolve_assets(bigchain, transaction, input_txs)
 
@@ -58,7 +63,7 @@ class SmartAssetConsensusRules(BaseConsensusRules):
             raise ValidationError('policy must be a list')
 
         for policy_rule in policy:
-            if 'condition' not in policy_rule or'rule' not in policy_rule:
+            if 'condition' not in policy_rule or 'rule' not in policy_rule:
                 raise ValidationError(
                     'policy item must contain a condition and rule')
 
@@ -80,6 +85,45 @@ class SmartAssetConsensusRules(BaseConsensusRules):
             pass
 
         return transaction
+
+    @staticmethod
+    def validate_link(transaction, bigchain):
+        public_key = transaction.inputs[0].owners_before[0]
+        cant_link_error = 'Linking is not authorized for: {}'.format(public_key)
+
+        if transaction.operation == Transaction.GENESIS or\
+            transaction.operation == Transaction.TRANSFER:
+            return
+
+        if not hasattr(transaction, 'asset'):
+            raise ValidationError('Asset not found in transaction {}'
+                                  .format(transaction))
+
+        if transaction.asset['data'] and ASSET_RULE_LINK not in transaction.asset['data']:
+            return
+
+        link = transaction.asset['data']['link']
+        tx_to_link = bigchain.get_transaction(link)
+        
+        if tx_to_link and not hasattr(tx_to_link, 'metadata'):
+            raise ValidationError(cant_link_error)
+        
+        if tx_to_link.metadata is None or METADATA_RULE_CAN_LINK not in tx_to_link.metadata:
+            raise ValidationError(cant_link_error)
+
+        can_link = tx_to_link.metadata[METADATA_RULE_CAN_LINK]
+        wallet_tx = bigchain.get_owned_ids(public_key)
+        wallet_tx_ids = [tx.txid for tx in wallet_tx]
+        wallet_tx_assets = bigchain.get_assets(wallet_tx_ids)
+
+        if wallet_tx_assets:
+            role_asset_tx = [asset for asset in wallet_tx_assets if asset['data']['link'] and\
+             asset['data']['link'] == can_link]
+
+        if not role_asset_tx:
+            raise ValidationError(cant_link_error)
+
+        return
 
     @staticmethod
     def validate_amount_conservation(transaction, input_txs):
