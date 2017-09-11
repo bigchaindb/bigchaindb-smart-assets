@@ -140,9 +140,14 @@ class SmartAssetConsensusRules(BaseConsensusRules):
             logger.info('canLink is a string, looking up assets in owner wallet')
             wallet_tx = bigchain.get_owned_ids(public_key)
             wallet_tx_ids = [tx.txid for tx in wallet_tx]
+            logger.info('Wallet has %s assets', len(wallet_tx_ids))
 
             for asset_id in wallet_tx_ids:
-                asset = bigchain.get_transaction(asset_id).asset
+                logger.info('Looking up asset: %s', asset_id)
+                trans = bigchain.get_transaction(asset_id)
+                asset = trans.asset
+                if trans.operation == Transaction.TRANSFER:
+                    asset = bigchain.get_transaction(trans.asset['id']).asset
                 if asset and asset['data'] and ASSET_RULE_LINK in asset['data']:
                     if asset['data']['link'] == can_link:
                         logger.info('Link valid: asset link is equal to canLink')
