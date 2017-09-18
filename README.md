@@ -1,5 +1,86 @@
 # Smart Assets
 
+## Installation
+
+### Clone
+Clone or fork this repo
+
+```bash
+git clone git@github.com:ascribe/bigchaindb-smart-assets.git
+```
+
+and
+
+```bash
+cd bigchaindb-smart-assets
+```
+
+now we need a specific branch of bigchaindb `kyber-master`, hence clone
+
+```bash
+git clone git@github.com:bigchaindb/bigchaindb.git
+cd bigchaindb
+git checkout kyber-master
+cd ..
+```
+
+## Quickstart with Docker (Windows, OSX, lazy Linux)
+
+> Supports BigchainDB Server v1.0
+
+### Prequisites
+
+You must have `docker`, `docker-compose` (and `make`) installed.
+These versions or higher should work:
+
+- `docker`: `v1.13.0`
+- `docker-compose`: `v1.7.1`
+
+### Make or docker-compose
+
+To spin up the services, simple run the make command, which will orchestrate `docker-compose`
+
+```bash
+make
+```
+
+This might take a few minutes, perfect moment for a :coffee:!
+
+Once docker-compose has built and launched all services, have a look:
+
+```bash
+docker-compose ps
+```
+
+```
+            Name                          Command               State                        Ports                       
+------------------------------------------------------------------------------------------------------------------------
+bigchaindbsmartassets_bdb_1   bigchaindb start                 Up      0.0.0.0:49984->9984/tcp                 │
+bigchaindbsmartassets_mdb_1   docker-entrypoint.sh mongo ...   Up      0.0.0.0:27017->27017/tcp  
+```
+
+If you already built the images and want to `restart`:
+
+```bash
+make restart
+```
+
+Stop (and remove) the containers with
+
+```bash
+make stop
+```
+
+### Launch docker-compose services manually
+
+No make? Launch the services manually:
+
+
+```bash
+docker-compose up -d mdb
+docker-compose up -d bdb
+```
+
 ## Intro
 
 
