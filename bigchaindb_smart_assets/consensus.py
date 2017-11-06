@@ -93,10 +93,10 @@ class SmartAssetConsensusRules(BaseConsensusRules):
     def validate_link(transaction, bigchain):
         logger.info('Validating link')
         public_key = transaction.inputs[0].owners_before[0]
-        logger.info('Owner: %s', public_key)
 
         cant_link_error = 'Linking is not authorized for: {}'.format(public_key)
 
+        # Dont't do anything when it's GENESIS or TRANSFER transaction
         if transaction.operation == Transaction.GENESIS or\
             transaction.operation == Transaction.TRANSFER:
             return
@@ -105,6 +105,7 @@ class SmartAssetConsensusRules(BaseConsensusRules):
             raise ValidationError('Asset not found in transaction {}'
                                   .format(transaction))
 
+        # If link is not being used, don't do anything
         if transaction.asset['data'] and ASSET_RULE_LINK not in transaction.asset['data']:
             return
 
@@ -129,13 +130,20 @@ class SmartAssetConsensusRules(BaseConsensusRules):
         can_link = tx_to_link.metadata[METADATA_RULE_CAN_LINK]
         logger.info('Can link: %s', can_link)
 
+        # can_link validation
+        # if can_link is a list,
+        # it means we need to check if the public key of the user is a part of it or not
         if isinstance(can_link, list):
             logger.info('canLink is a list, looking up for public key of owner')
             if public_key in can_link:
-                logger.info('Link valid: public key found in canLink')
+                logger.info('Link valid: public key in canLink')
                 return
             else:
                 raise ValidationError(cant_link_error)
+
+        # else if can_link is a string
+        # it means we need to check if the can_link value is a valid asset id and
+        # if the user has a premission asset linked to the can_link asset
         elif isinstance(can_link, str):
             logger.info('canLink is a string, looking up assets in owner wallet')
             wallet_tx = bigchain.get_owned_ids(public_key)
@@ -145,12 +153,13 @@ class SmartAssetConsensusRules(BaseConsensusRules):
             for asset_id in wallet_tx_ids:
                 logger.info('Looking up asset: %s', asset_id)
                 trans = bigchain.get_transaction(asset_id)
-                asset = trans.asset
+                permission_asset = trans.asset
                 if trans.operation == Transaction.TRANSFER:
-                    asset = bigchain.get_transaction(trans.asset['id']).asset
-                if asset and asset['data'] and ASSET_RULE_LINK in asset['data']:
-                    if asset['data']['link'] == can_link:
-                        logger.info('Link valid: asset link is equal to canLink')
+                    permission_asset = bigchain.get_transaction(trans.asset['id']).asset
+                if permission_asset and permission_asset['data'] and\
+                    ASSET_RULE_LINK in permission_asset['data']:
+                    if permission_asset['data']['link'] == can_link:
+                        logger.info('Link valid: asset.link is canLink')
                         break
                 else:
                     continue
