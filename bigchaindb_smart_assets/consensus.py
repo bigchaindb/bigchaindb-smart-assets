@@ -1,3 +1,5 @@
+import logging
+
 from bigchaindb.common.exceptions import ValidationError
 from bigchaindb.consensus import BaseConsensusRules
 from bigchaindb.models import Transaction
@@ -6,7 +8,10 @@ from bigchaindb_smart_assets.policy import PolicyParser
 
 ASSET_RULE_POLICY = 'policy'
 ASSET_RULE_ROLE = 'role'
+ASSET_RULE_LINK = 'link'
+METADATA_RULE_CAN_LINK = 'canLink'
 
+logger = logging.getLogger(__name__)
 
 class SmartAssetConsensusRules(BaseConsensusRules):
 
@@ -26,6 +31,9 @@ class SmartAssetConsensusRules(BaseConsensusRules):
 
     @staticmethod
     def validate_asset(bigchain, transaction, input_txs):
+
+        SmartAssetConsensusRules.validate_link(transaction, bigchain)
+
         assets = SmartAssetConsensusRules \
             .resolve_assets(bigchain, transaction, input_txs)
 
@@ -58,7 +66,7 @@ class SmartAssetConsensusRules(BaseConsensusRules):
             raise ValidationError('policy must be a list')
 
         for policy_rule in policy:
-            if 'condition' not in policy_rule or'rule' not in policy_rule:
+            if 'condition' not in policy_rule or 'rule' not in policy_rule:
                 raise ValidationError(
                     'policy item must contain a condition and rule')
 
@@ -80,6 +88,87 @@ class SmartAssetConsensusRules(BaseConsensusRules):
             pass
 
         return transaction
+
+    @staticmethod
+    def validate_link(transaction, bigchain):
+        logger.info('Validating link')
+        public_key = transaction.inputs[0].owners_before[0]
+
+        cant_link_error = 'Linking is not authorized for: {}'.format(public_key)
+
+        # Dont't do anything when it's GENESIS or TRANSFER transaction
+        if transaction.operation == Transaction.GENESIS or\
+            transaction.operation == Transaction.TRANSFER:
+            return
+
+        if not hasattr(transaction, 'asset'):
+            raise ValidationError('Asset not found in transaction {}'
+                                  .format(transaction))
+
+        # If link is not being used, don't do anything
+        if transaction.asset['data'] and ASSET_RULE_LINK not in transaction.asset['data']:
+            return
+
+        link = transaction.asset['data']['link']
+        logger.info('Link: %s', link)
+        tx_to_link = bigchain.get_transaction(link)
+
+        if not tx_to_link:
+            raise ValidationError('Transaction to link not found {}'
+                                    .format(link))
+
+        logger.info('Link Transaction: %s', tx_to_link.id)
+
+        if tx_to_link and not hasattr(tx_to_link, 'metadata'):
+            raise ValidationError('Metadata not found in transaction {}'
+                                    .format(tx_to_link))
+
+        if tx_to_link.metadata is None or METADATA_RULE_CAN_LINK not in tx_to_link.metadata:
+            raise ValidationError('canLink not found in metadata of transaction {}'
+                                    .format(tx_to_link))
+
+        can_link = tx_to_link.metadata[METADATA_RULE_CAN_LINK]
+        logger.info('Can link: %s', can_link)
+
+        # can_link validation
+        # if can_link is a list,
+        # it means we need to check if the public key of the user is a part of it or not
+        if isinstance(can_link, list):
+            logger.info('canLink is a list, looking up for public key of owner')
+            if public_key in can_link:
+                logger.info('Link valid: public key in canLink')
+                return
+            else:
+                raise ValidationError(cant_link_error)
+
+        # else if can_link is a string
+        # it means we need to check if the can_link value is a valid asset id and
+        # if the user has a premission asset linked to the can_link asset
+        elif isinstance(can_link, str):
+            logger.info('canLink is a string, looking up assets in owner wallet')
+            wallet_tx = bigchain.get_owned_ids(public_key)
+            wallet_tx_ids = [tx.txid for tx in wallet_tx]
+            logger.info('Wallet has %s assets', len(wallet_tx_ids))
+
+            for asset_id in wallet_tx_ids:
+                logger.info('Looking up asset: %s', asset_id)
+                trans = bigchain.get_transaction(asset_id)
+                permission_asset = trans.asset
+                if trans.operation == Transaction.TRANSFER:
+                    permission_asset = bigchain.get_transaction(trans.asset['id']).asset
+                if permission_asset and permission_asset['data'] and\
+                    ASSET_RULE_LINK in permission_asset['data']:
+                    if permission_asset['data']['link'] == can_link:
+                        logger.info('Link valid: asset.link is canLink')
+                        break
+                else:
+                    continue
+            else:
+                raise ValidationError(cant_link_error)
+        else:
+            raise ValidationError('canLink is not valid')
+
+        return
 
     @staticmethod
     def validate_amount_conservation(transaction, input_txs):
