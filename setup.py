@@ -46,7 +46,7 @@ setup(
     long_description=changelog,
     author="BigchainDB",
     author_email='dev@bigchaindb.com',
-    url='https://github.com/ascribe/bigchaindb-consensus-plugin-composition',
+    url='https://github.com/bigchaindb/bigchaindb-smart-assets',
     packages=[
         'bigchaindb_smart_assets',
     ],
@@ -65,8 +65,8 @@ setup(
     zip_safe=False,
     keywords='bigchaindb_smart_assets',
     classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Developers',
+        'Development Status :: 2 - Beta',
+        'Intended Audience :: Power Users',
         'License :: OSI Approved :: Apache Software License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3 :: Only',
