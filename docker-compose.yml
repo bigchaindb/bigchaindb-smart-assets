@@ -2,7 +2,7 @@ version: '2'
 
 services:
   mdb:
-    image: mongo:3.4.3
+    image: mongo:3.4.10
     ports:
       - "27017:27017"
     command: mongod --replSet=bigchain-rs
@@ -27,6 +27,13 @@ services:
       BIGCHAINDB_KEYPAIR_PUBLIC: GW1nrdZm4mbVC8ePeiGWz6DqHexqewqy5teURVHi3RG4
       BIGCHAINDB_KEYPAIR_PRIVATE: 2kQgBtQnHoauw8QchKM7xYvEBW1QDoHzhBsCL9Vi1AzB
       BIGCHAINDB_CONSENSUS_PLUGIN: consensus_smart_assets
+      BIGCHAINDB_WSSERVER_PORT: 9985
+      BIGCHAINDB_DATABASE_PORT: 27017
+      BIGCHAINDB_DATABASE_NAME: bigchain
+      BIGCHAINDB_DATABASE_REPLICASET: bigchain-rs
+      BIGCHAINDB_WSSERVER_SCHEME: ws
+      BIGCHAINDB_WSSERVER_HOST: 0.0.0.0
     ports:
-      - "49984:9984"
+      - "9984:9984"
+      - "9985:9985"
     command: bigchaindb start
