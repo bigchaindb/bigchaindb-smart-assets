@@ -11,8 +11,6 @@ RUN apt-get -qq update \
     && apt-get autoremove \
     && apt-get clean
 
-RUN bigchaindb -y configure mongodb
-
 WORKDIR /usr/src/app/
 
 RUN pip install --no-cache-dir -e .[dev]
