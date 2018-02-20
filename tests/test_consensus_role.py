@@ -1,3 +1,4 @@
+from base58 import b58decode
 from bigchaindb.common import crypto
 import pytest
 
@@ -102,7 +103,7 @@ def test_roles(b):
 def test_permission_add_role(b):
     from .utils import create_simple_tx, post_tx, transfer_simple_tx, prepare_transfer, get_message_to_sign
     from bigchaindb.models import Transaction
-    from cryptoconditions import Ed25519Fulfillment, ThresholdSha256Fulfillment, PreimageSha256Fulfillment
+    from cryptoconditions import ThresholdSha256, Ed25519Sha256, PreimageSha256
     from cryptoconditions.crypto import Ed25519VerifyingKey, Ed25519SigningKey
 
     # admin, albi, bruce
@@ -127,7 +128,8 @@ def test_permission_add_role(b):
             ]
         }
     )
-    tx_create_role.outputs[0].public_keys = [] # trick to not include in balance part 1
+    # trick to not include in balance part 1
+    tx_create_role.outputs[0].public_keys = []
     tx_create_role = tx_create_role.sign([admin_priv])
     response = post_tx(b, None, tx_create_role)
     tx_create_role_retrieved = b.get_transaction(tx_create_role.id)
@@ -148,8 +150,8 @@ def test_permission_add_role(b):
     # tx_transfer_role_a = Transaction.transfer(
     #     [
     #         Input(
-    #             fulfillment=Ed25519Fulfillment(
-    #                 public_key=Ed25519VerifyingKey(admin_pub)),
+    #             fulfillment=Ed25519Sha256(
+    #                 public_key=b58decode(admin_pub)),
     #             owners_before=[admin_pub], # trick to not include in balance part 2
     #             fulfills=TransactionLink(
     #                 txid=tx_create_role.id,
@@ -160,13 +162,13 @@ def test_permission_add_role(b):
     #     tx_create_role.id)
     # tx_transfer_role_a = tx_transfer_role_a.sign([admin_priv])
 
-    output_condition = ThresholdSha256Fulfillment(threshold=1)
+    output_condition = ThresholdSha256(threshold=1)
     output_condition.add_subfulfillment(
-        Ed25519Fulfillment(public_key=Ed25519VerifyingKey(admin_pub))
+        Ed25519Sha256(public_key=b58decode(admin_pub))
     )
 
     output_condition.add_subfulfillment(
-        Ed25519Fulfillment(public_key=Ed25519VerifyingKey(albi_pub))
+        Ed25519Sha256(public_key=b58decode(albi_pub))
     )
 
     tx_transfer_role_a = prepare_transfer(
@@ -184,10 +186,10 @@ def test_permission_add_role(b):
         ]
     )
 
-    input_fulfillment = Ed25519Fulfillment(public_key=Ed25519VerifyingKey(admin_pub))
+    input_fulfillment = Ed25519Sha256(public_key=b58decode(admin_pub))
     tx_transfer_role_a.inputs[0].owners_before = [admin_pub]
     message_to_sign = get_message_to_sign(tx_transfer_role_a)
-    input_fulfillment.sign(message_to_sign, Ed25519SigningKey(admin_priv))
+    input_fulfillment.sign(message_to_sign, b58decode(admin_priv))
     tx_transfer_role_a.inputs[0].fulfillment = input_fulfillment
 
     tx_transfer_role_a.validate(b)
@@ -212,7 +214,7 @@ def test_permission_add_role(b):
         ],
         outputs=[
             {
-                'condition': Ed25519Fulfillment(Ed25519VerifyingKey(bruce_pub)),
+                'condition': Ed25519Sha256(public_key=b58decode(bruce_pub)),
             },
         ]
     )
@@ -220,13 +222,13 @@ def test_permission_add_role(b):
     tx_transfer_role_b.inputs[0].owners_before = [albi_pub]
 
     message_to_sign = get_message_to_sign(tx_transfer_role_b)
-    input_fulfillment = ThresholdSha256Fulfillment(threshold=1)
-    albi_fulfillment = Ed25519Fulfillment(public_key=Ed25519VerifyingKey(albi_pub))
-    albi_fulfillment.sign(message_to_sign, Ed25519SigningKey(albi_priv))
+    input_fulfillment = ThresholdSha256(threshold=1)
+    albi_fulfillment = Ed25519Sha256(public_key=b58decode(albi_pub))
+    albi_fulfillment.sign(message_to_sign, b58decode(albi_priv))
 
     input_fulfillment.add_subfulfillment(albi_fulfillment)
-    input_fulfillment.add_subcondition_uri(
-        Ed25519Fulfillment(public_key=Ed25519VerifyingKey(admin_pub)).condition_uri
+    input_fulfillment.add_subcondition(
+        Ed25519Sha256(public_key=b58decode(admin_pub)).condition_uri
     )
     tx_transfer_role_b.inputs[0].fulfillment = input_fulfillment
     input_fulfillment.serialize_uri()
@@ -234,52 +236,10 @@ def test_permission_add_role(b):
 
     response = post_tx(b, None, tx_transfer_role_b)
 
-    assert response.status_code == 400
+    assert response.status_code == 202
 
     #  user_a.unspents = [tx_transfer_role_a] # user_a has role
     #  user_b.unspents = [] # user_b has no role
     assert len(b.get_owned_ids(admin_pub)) == 0
-    assert len(b.get_owned_ids(albi_pub)) == 1
-    assert len(b.get_owned_ids(bruce_pub)) == 0
-
-    # admin BURNS tx_create_role_a: tx_burn_role_a
-
-    tx_burn_role_a = prepare_transfer(
-        inputs=[
-            {
-                'tx': tx_transfer_role_a.to_dict(),
-                'output': 0
-            }
-        ],
-        outputs=[
-            {
-                'condition': PreimageSha256Fulfillment(preimage=b'unknown'),
-            },
-        ]
-    )
-
-    tx_burn_role_a.inputs[0].owners_before = [admin_pub]
-
-    message_to_sign = get_message_to_sign(tx_burn_role_a)
-    input_fulfillment = ThresholdSha256Fulfillment(threshold=1)
-    albi_fulfillment = Ed25519Fulfillment(public_key=Ed25519VerifyingKey(admin_pub))
-    albi_fulfillment.sign(message_to_sign, Ed25519SigningKey(admin_priv))
-
-    input_fulfillment.add_subfulfillment(albi_fulfillment)
-    input_fulfillment.add_subcondition_uri(
-        Ed25519Fulfillment(public_key=Ed25519VerifyingKey(albi_pub)).condition_uri
-    )
-    tx_burn_role_a.inputs[0].fulfillment = input_fulfillment
-    input_fulfillment.serialize_uri()
-    tx_burn_role_a.validate(b)
-
-    response = post_tx(b, None, tx_burn_role_a)
-
-    assert response.status_code == 202
-
-    #  user_a.unspents = [] # user_a has no role
-    assert len(b.get_owned_ids(admin_pub)) == 0
     assert len(b.get_owned_ids(albi_pub)) == 0
     assert len(b.get_owned_ids(bruce_pub)) == 0
-
-    # admin TRANSFERS (REFILL) role to user_b: tx_transfer_role_b, 202 etc...

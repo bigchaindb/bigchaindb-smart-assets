@@ -121,25 +121,13 @@ def test_consensus_rules_recipe(b):
                     'condition':
                         "transaction.metadata['state'] == 'CONCENTRATE_READY'",
                     'rule':
-                        "AMOUNT(transaction.outputs) == 1000"
+                        "AMOUNT(transaction.outputs) == 1"
                         " AND transaction.metadata['concentration'] > 95"
                         " AND transaction.inputs[0].owners_before[0] == '{}'"
                         " AND ( transaction.outputs[0].public_keys[0] == '{}'"
                         " OR transaction.outputs[0].public_keys[0] == '{}')"
                         .format(bruce_pub, bruce_pub, carly_pub)
-                },
-                {
-                    'condition':
-                        "transaction.metadata['state'] == 'MIX_READY'",
-                    'rule':
-                        "AMOUNT(transaction.outputs) >= 4000"
-                        " AND transaction.metadata['concentration'] > 20"
-                        " AND ( transaction.inputs[0].owners_before[0] == '{}'"
-                        " OR transaction.inputs[0].owners_before[0] == '{}')"
-                        " AND transaction.outputs[0].public_keys[0] == '{}'"
-                        .format(bruce_pub, carly_pub, carly_pub)
-                },
-
+                }
             ]
         },
         metadata={
@@ -163,7 +151,7 @@ def test_consensus_rules_recipe(b):
     response = post_tx(b, None, tx_concentrate_order_signed)
     assert response.status_code == 202
 
-    concentrate_amount = 1000
+    concentrate_amount = 1
     tx_concentrate_ready = Transaction.transfer(
         tx_concentrate_order.to_inputs(),
         [([carly_pub], concentrate_amount)],
@@ -179,7 +167,6 @@ def test_consensus_rules_recipe(b):
     assert response.status_code == 202
 
     bulk_amount = 3500
-
     tx_bulk = Transaction.create(
         [carly_pub],
         [([carly_pub], bulk_amount)],
@@ -194,11 +181,11 @@ def test_consensus_rules_recipe(b):
     response = post_tx(b, None, tx_bulk_signed)
     assert response.status_code == 202
 
-    mix_amount = 4500
+    mix_amount = bulk_amount
     tx_mix_ready = Transaction.transfer(
-        tx_concentrate_ready.to_inputs() + tx_bulk.to_inputs(),
+        tx_bulk.to_inputs(),
         [([carly_pub], mix_amount)],
-        tx_order.id,
+        tx_bulk.id,
         metadata={
             'state': "MIX_READY",
             'concentration': 97
